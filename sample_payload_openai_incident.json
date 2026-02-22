@@ -1,0 +1,18 @@
+{
+  "incident": {
+    "id": "incident_abc123",
+    "name": "OpenAI API - Chat Completions",
+    "status": "investigating",
+    "updated_at": "2026-02-22T11:20:00Z",
+    "components": [
+      {
+        "name": "Chat Completions"
+      }
+    ]
+  },
+  "incident_update": {
+    "id": "update_xyz789",
+    "updated_at": "2026-02-22T11:21:00Z",
+    "body": "Degraded performance due to upstream issue"
+  }
+}

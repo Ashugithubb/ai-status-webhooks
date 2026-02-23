@@ -47,7 +47,6 @@ class ConnectionManager:
             try:
                 await connection.send_json(message)
             except Exception:
-                # Handle cases where connection might have closed
                 pass
 
 
@@ -134,7 +133,7 @@ async def receive_openai_status_webhook(token: str, request: Request) -> Dict[st
 
     try:
         payload = await request.json()
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:  
         raise HTTPException(status_code=400, detail=f"Invalid JSON payload: {exc}") from exc
 
     product, message = _extract_product_and_message(payload)
@@ -188,29 +187,28 @@ def _demo_payload() -> Dict[str, Any]:
 
 
 @app.post("/demo/trigger")
-async def trigger_demo_event() -> Dict[str, Any]:
-    payload = _demo_payload()
+async def trigger_demo_event(payload: Dict[str, Any] = None) -> Dict[str, Any]:
+    if payload is None:
+        payload = _demo_payload()
+        
     product, message = _extract_product_and_message(payload)
-    dedupe_key = _build_dedupe_key(payload, message)
-    if dedupe_key not in seen_updates:
-        seen_updates.add(dedupe_key)
-        event_ts = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
-        print(f"[{event_ts}] DEMO | Product: {product}")
-        print(f"Status: {message}")
-        
-        event_dict = {
-            "timestamp": event_ts,
-            "product": product,
-            "status": message
-        }
-        event_history.insert(0, event_dict)
-        
-        # Broadcast to websocket clients
-        import asyncio
-        asyncio.create_task(manager.broadcast(event_dict))
-        
-        return {"triggered": True, "printed": True}
-    return {"triggered": True, "printed": False, "reason": "duplicate update"}
+    
+    event_ts = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+    print(f"[{event_ts}] DEMO | Product: {product}")
+    print(f"Status: {message}")
+    
+    event_dict = {
+        "timestamp": event_ts,
+        "product": product,
+        "status": message
+    }
+    event_history.insert(0, event_dict)
+    
+    # Broadcast to websocket clients
+    import asyncio
+    asyncio.create_task(manager.broadcast(event_dict))
+    
+    return {"triggered": True, "printed": True}
 
 
 @app.websocket("/ws")
@@ -223,6 +221,7 @@ async def websocket_endpoint(websocket: WebSocket):
         manager.disconnect(websocket)
 
 
+@app.get("/", response_class=HTMLResponse)
 @app.get("/dashboard", response_class=HTMLResponse)
 async def dashboard():
     rows = ""

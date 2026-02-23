@@ -3,7 +3,7 @@ import os
 from datetime import datetime, timezone
 from typing import Any, Dict, Set, Tuple
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect, Body
 from fastapi.responses import HTMLResponse
 import json
 
@@ -168,8 +168,9 @@ async def receive_openai_status_webhook(token: str, request: Request) -> Dict[st
     return {"received": True, "printed": True, "dedupe_key": dedupe_key}
 
 
+
+
 def _demo_payload() -> Dict[str, Any]:
-    # Useful for quick local testing when no webhook is configured yet.
     return {
         "incident": {
             "id": "incident_123",
@@ -187,9 +188,27 @@ def _demo_payload() -> Dict[str, Any]:
 
 
 @app.post("/demo/trigger")
-async def trigger_demo_event(payload: Dict[str, Any] = None) -> Dict[str, Any]:
+async def trigger_demo_event(request: Request) -> Dict[str, Any]:
+    payload = None
+    
+    # Try to get body if it exists
+    body_bytes = await request.body()
+    if body_bytes:
+        try:
+            payload = await request.json()
+        except Exception:
+            # If not valid JSON, try to parse as string then JSON (for misconfigured clients)
+            try:
+                payload = json.loads(body_bytes.decode())
+            except Exception:
+                raise HTTPException(status_code=400, detail="Invalid JSON body")
+
     if payload is None:
         payload = _demo_payload()
+    
+    if not isinstance(payload, dict):
+        print(f"DEBUG: Payload type is {type(payload)}: {payload}")
+        raise HTTPException(status_code=400, detail=f"Payload must be a JSON object, got {type(payload).__name__}")
         
     product, message = _extract_product_and_message(payload)
     
